@@ -1,0 +1,41 @@
+# Builds the app folder on GitHub's Linux runners and keeps PPSA99061.zip as a
+# download (Actions > the run > Artifacts), for building without a Linux PC.
+# SPDX-License-Identifier: GPL-3.0-or-later
+name: Build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-18 lld-18 llvm-18 clang llvm ninja-build make python3 \
+            curl wget unzip xz-utils tar
+          clang-18 --version
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: .deps
+          key: deps-${{ hashFiles('tools/setup-native-dependencies.sh', 'tools/build-deps.sh', 'tools/fetch-opengl-sdk.sh') }}
+
+      - name: Build
+        env:
+          PS5_CLANG: clang-18
+          # The background tile's page: this repository's GitHub Pages copy of
+          # docs/background/index.html.
+          BACKGROUND_PAGE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/background/
+        run: make
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PPSA99061
+          path: dist/PPSA99061.zip
+          if-no-files-found: error

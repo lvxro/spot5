@@ -105,7 +105,12 @@ constexpr const char *kUrlFile = "/data/spot5/background_url.txt";
 // may still load audio and images, not data, from the console over plain http.
 constexpr const char *kTileId = "SPOT50001";
 constexpr const char *kTileName = "Spot5 Background";
+// A build may point it elsewhere (tools/build-background.sh, BACKGROUND_PAGE_URL).
+#ifdef BACKGROUND_PAGE_URL
+constexpr const char *kDefaultPageUrl = BACKGROUND_PAGE_URL;
+#else
 constexpr const char *kDefaultPageUrl = "https://abhi245y.github.io/spot5/background/";
+#endif
 
 // The music core holds about this much audio before it is heard (WAV; MP3 is
 // 3-5 s): the position we report lags by it, and the song toast waits for it.

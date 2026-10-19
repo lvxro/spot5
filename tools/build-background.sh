@@ -94,7 +94,16 @@ compile "$out/bell-c" "$cc" "${c_flags[@]}" -- "$bell/main/io/picohttpparser.c" 
     $(ls "$bell"/external/tremor/*.c | grep -v ivorbisfile_example)
 
 echo "==> [background] payload" >&2
-"$cxx" "${cxx_flags[@]}" -Wall \
+# BACKGROUND_PAGE_URL (https) replaces the default tile page, e.g. a fork's Pages.
+page_define=()
+if [[ -n ${BACKGROUND_PAGE_URL:-} ]]; then
+    [[ $BACKGROUND_PAGE_URL =~ ^https://[A-Za-z0-9./_-]+$ ]] || {
+        echo "BACKGROUND_PAGE_URL must be a plain https address" >&2; exit 2;
+    }
+    page_define=("-DBACKGROUND_PAGE_URL=\"$BACKGROUND_PAGE_URL\"")
+    echo "    tile page: $BACKGROUND_PAGE_URL" >&2
+fi
+"$cxx" "${cxx_flags[@]}" -Wall "${page_define[@]}" \
     "-DCERT_BUNDLE_PATH=\"$root/assets/x509_bundle.bin\"" "-DTILE_ICON_PATH=\"$root/sce_sys/icon0.png\"" \
     -o "$elf" "$root/background/background.cpp" \
     -Wl,--start-group "$out"/bell/*.o "$out"/bell-c/*.o "$out"/mbedtls/*.o -Wl,--end-group \

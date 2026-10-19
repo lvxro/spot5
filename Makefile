@@ -55,6 +55,7 @@ build/mdns-helper.elf: helper/mdns_helper.c $(MDNSSVC)/mdns.c $(MDNSSVC)/mdnsd.c
 		-o $@ $^ -lpthread
 # The background player payload (sent to elfldr when the music moves to the
 # background): payload SDK, its own copy of cspot (tools/build-background.sh).
+#   BACKGROUND_PAGE_URL=https://... picks another page for its tile (a fork's Pages).
 background: build/spot5-background.elf
 build/spot5-background.elf: background/background.cpp assets/x509_bundle.bin sce_sys/icon0.png \
 		build/deps/libbell.a | $(SDK_READY)
