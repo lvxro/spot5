@@ -40,7 +40,8 @@ jobs:
       - name: Show why the build failed
         if: failure()
         run: |
-          tail -n 60 build.log | sed 's/%/%25/g' | awk 'BEGIN { ORS = "%0A" } { print }' > tail.txt
+          tr '\r' '\n' < build.log | grep -v -E '% Total|Dload|^ *[0-9]+ +[0-9.]+[kMG]? +[0-9]+' \
+            | tail -n 60 | sed 's/%/%25/g' | awk 'BEGIN { ORS = "%0A" } { print }' > tail.txt
           echo "::error title=Build log (last lines)::$(cat tail.txt)"
 
       - uses: actions/upload-artifact@v4
