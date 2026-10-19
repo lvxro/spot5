@@ -19,7 +19,7 @@
 //                        "OK\n" once it plays here, or "ERR <why>\n"
 //   TAKEBACK\n           the app is back: we answer "STATE <n>\n<json>" (what plays
 //                        now, same fields) and quit
-// Live port, 8795 (any address): /live.wav, /status, /state.png, /meta.png,
+// Live port, 8795 (any address): /live.wav, /status, /log, /state.png, /meta.png,
 // /ver.png, /pos.png, /control.png?a=toggle|next|prev, /quit.
 // Files: /data/spot5/background.log (+ .prev), covers for the song toast in
 // /data/spot5/covers, optional page address in /data/spot5/background_url.txt.
@@ -1558,6 +1558,13 @@ void handle_live_client(int fd)
     {
         body = status_json();
         type = "application/json";
+    }
+    else if (std::strncmp(path, "/log", 4) == 0)
+    {
+        // For a phone's browser on the LAN: this run's log, then the previous one's.
+        std::fflush(stdout);
+        body = read_file(kLogPath) + "\n---- previous run ----\n" + read_file(kLogPrevious);
+        type = "text/plain; charset=utf-8";
     }
     else if (std::strncmp(path, "/quit", 5) == 0)
     {
