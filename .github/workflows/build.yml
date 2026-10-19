@@ -32,7 +32,16 @@ jobs:
           # The background tile's page: this repository's GitHub Pages copy of
           # docs/background/index.html.
           BACKGROUND_PAGE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/background/
-        run: make
+        run: |
+          set -o pipefail
+          make 2>&1 | tee build.log
+
+      # Annotations are readable without signing in, unlike the log.
+      - name: Show why the build failed
+        if: failure()
+        run: |
+          tail -n 60 build.log | sed 's/%/%25/g' | awk 'BEGIN { ORS = "%0A" } { print }' > tail.txt
+          echo "::error title=Build log (last lines)::$(cat tail.txt)"
 
       - uses: actions/upload-artifact@v4
         with:
