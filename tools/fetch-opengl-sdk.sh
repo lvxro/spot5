@@ -12,7 +12,12 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 version=1.0.0
 archive_sha256=f93643c04c843d56143b00951df1f8042ea7706ae9f19e4e9abf158e1ead77c5
 manifest_sha256=f4b91f672be037fbac3f82494f1225deaf4c227a03f37ac3ffa56abb213b943f
-url="https://github.com/blackbearreloaded/ps5-opengl/releases/download/v$version/ps5-opengl-sdk-$version.tar.gz"
+# The original release, then a copy of the same file (the original account is
+# gone); either is used only if it matches archive_sha256.
+urls=(
+    "https://github.com/blackbearreloaded/ps5-opengl/releases/download/v$version/ps5-opengl-sdk-$version.tar.gz"
+    "https://github.com/MyLuxy/overdrive-deps/releases/download/ps5-opengl-v$version/ps5-opengl-sdk-$version.tar.gz"
+)
 
 cache="$root/.deps/ps5-opengl"
 archive="$cache/ps5-opengl-sdk-$version.tar.gz"
@@ -23,8 +28,15 @@ mkdir -p "$cache"
 if [[ ! -f $prefix/manifest.sha256 ]]; then
     if [[ ! -f $archive ]] || ! sha256sum --check --status <<<"$archive_sha256  $archive"; then
         printf '==> [opengl] Downloading ps5-opengl SDK %s\n' "$version" >&2
-        curl -fL --retry 3 -o "$archive.part" "$url"
-        mv -- "$archive.part" "$archive"
+        for url in "${urls[@]}"; do
+            if curl -fsSL --retry 3 -o "$archive.part" "$url" &&
+                sha256sum --check --status <<<"$archive_sha256  $archive.part"; then
+                mv -- "$archive.part" "$archive"
+                break
+            fi
+            echo "    not usable: $url" >&2
+            rm -f -- "$archive.part"
+        done
     fi
     sha256sum --check --status <<<"$archive_sha256  $archive" || {
         echo "ps5-opengl SDK archive checksum mismatch" >&2
