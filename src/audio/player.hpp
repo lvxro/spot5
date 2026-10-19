@@ -54,6 +54,8 @@ class Player
     // This console's own level (0..10, perceptual: -4 dB per step near the
     // top) on top of the phone's volume, or alone when follow_phone is off.
     void set_volume(int level, bool follow_phone);
+    // The phone's volume (spirc, 0..65535).
+    int phone_volume() const { return volume_; }
 
     // While held, a "play" from Spotify keeps the output paused and is
     // remembered instead: right after a pairing login the phone moves its

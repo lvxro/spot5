@@ -244,6 +244,7 @@ enum class Command : std::uint8_t
     refresh_home, // fetch Home again (R3); the app limits how often
     clear_cache,  // delete saved covers and Home (Control Room > About), then fetch again
     refresh_library, // fetch Your Library again (R3 on Library)
+    background,   // hand the music to the background player, then quit (Control Room > Quit)
 };
 
 } // namespace screens

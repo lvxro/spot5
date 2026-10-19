@@ -39,6 +39,20 @@ The default Spotify client ID is librespot's public keymaster ID
 The archives are fetched into the ignored `.deps/` folder and checked against
 the pinned SHA-256 before use; they are not stored in this repository.
 
+## Background play
+
+The background player (`background/background.cpp`) and its page
+(`docs/background/index.html`) follow
+[ps5-spotify](https://github.com/Maksio2019/ps5-spotify) by Maksio2019,
+GPL-3.0-or-later: the route (a payload streaming live WAV to a web app tile's
+`<audio>`, which the system keeps playing at the home screen and in games), the
+live stream sink, the image-only song info, the song toast and the tile
+installer are adapted from its `payload/spotify_daemon.cpp`,
+`probes/webapp_install.c` and `index.html`. Its installer in turn follows
+[svtplay](https://github.com/ps5-payload-dev/svtplay) by John Törnblom
+(GPL-3.0-or-later), and the app launch follows
+[websrv](https://github.com/ps5-payload-dev/websrv) (GPL-3.0-or-later).
+
 ## UI kit, renderer and native foundation
 
 The UI kit, renderer, audio mixer and native app tooling come from

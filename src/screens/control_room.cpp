@@ -95,6 +95,7 @@ enum class Field : std::uint8_t
     clear_cache,
     reset,
     quit,
+    background,
     count,
 };
 constexpr std::size_t kFieldCount = static_cast<std::size_t>(Field::count);
@@ -162,6 +163,9 @@ constexpr Row kAboutRows[] = {
 constexpr Row kQuitRows[] = {
     {"Quit Spot5", "The music stops and the app closes. The PS button can also close it.",
      Kind::action, Field::quit},
+    {"Keep playing in the background",
+     "The app closes and the music goes on at the home screen and during games, in the Spot5 Background tile.",
+     Kind::action, Field::background},
 };
 
 constexpr int kAbout = 4;
@@ -172,7 +176,7 @@ constexpr Category kCategories[] = {
     {"Account", "Who is signed in, and how to forget it.", kAccountRows, 2},
     {"Display", "How sharp and how calm the interface is, and how menus open.", kDisplayRows, 3},
     {"About", "What this app is built from, its saved data, and the way back to its defaults.", kAboutRows, 2},
-    {"Quit", "Close the app.", kQuitRows, 1},
+    {"Quit", "Close the app, or let the music go on without it.", kQuitRows, 2},
 };
 constexpr int kCategoryCount = 6;
 
@@ -210,6 +214,7 @@ enum class Ask : std::uint8_t
     clear,
     reset,
     quit,
+    background,
 };
 
 struct Control
@@ -733,6 +738,7 @@ class ControlRoom final : public Screen
             ask_ = row.field == Field::forget        ? Ask::forget
                    : row.field == Field::clear_cache ? Ask::clear
                    : row.field == Field::reset       ? Ask::reset
+                   : row.field == Field::background  ? Ask::background
                                                      : Ask::quit;
             last_ask_ = ask_;
             choice_ = 0; // the safe choice
@@ -871,6 +877,10 @@ class ControlRoom final : public Screen
                 break;
             case Ask::quit:
                 commands.push_back(Command::quit);
+                break;
+            case Ask::background:
+                commands.push_back(Command::background);
+                close_ = true; // the busy pill shows the handoff; the app then closes
                 break;
             case Ask::none:
                 break;
@@ -1430,8 +1440,8 @@ class ControlRoom final : public Screen
     {
         const Rect card = draw_card(list, kQuit, dy, "CLOSING");
         ui::paragraph(list, context_.fonts.regular,
-                      "Quitting stops the music on this console. Your phone keeps the queue, so "
-                      "you can pick another device and carry on.",
+                      "Quitting stops the music on this console. To keep listening at the home "
+                      "screen or in a game, choose Keep playing in the background.",
                       card.x + kRowPad, card.y + 96, 25, card.w - 2 * kRowPad, 38,
                       kInk.with_alpha(0.75f), 3);
     }
@@ -1590,6 +1600,7 @@ class ControlRoom final : public Screen
         const char *title = shown == Ask::forget ? "Forget this login?"
                             : shown == Ask::clear ? "Clear the cache?"
                             : shown == Ask::reset ? "Reset all settings?"
+                            : shown == Ask::background ? "Keep playing in the background?"
                                                   : "Quit Spot5?";
         const char *body =
             shown == Ask::forget
@@ -1601,11 +1612,15 @@ class ControlRoom final : public Screen
             : shown == Ask::reset
                 ? "Every option on these pages goes back to how it was when the app first started, "
                   "time zone included."
+            : shown == Ask::background
+                ? "Spot5 closes and the Spot5 Background tile plays on, at the home screen and in "
+                  "games. Control it from your phone; open Spot5 again to take it back."
                 : "The music stops and the app closes. You can also close it any time with the PS "
                   "button.";
         const char *yes = shown == Ask::forget  ? "Forget"
                           : shown == Ask::clear ? "Clear"
                           : shown == Ask::reset ? "Reset"
+                          : shown == Ask::background ? "Continue"
                                                 : "Quit";
         list.push_opacity(tween::clamp01(t * 1.5f));
         list.push_transform(1.0f - 0.06f * (1.0f - t) * travel(), 960, 540, 0,

@@ -20,6 +20,7 @@
 #include "LoginBlob.h"
 #include "app/config.hpp"
 #include "platform/ps5/system.hpp"
+#include "service/elf_loader.hpp"
 
 namespace service
 {
@@ -32,45 +33,6 @@ namespace
 // which advertises us and answers the phone, and talks to us over the
 // control link below.
 constexpr const char *kHelper = "/app0/assets/mdns-helper.elf";
-constexpr int kElfLoaderPort = 9021;
-
-bool send_helper(std::string &error)
-{
-    const std::string elf = app::read_file(kHelper);
-    if (elf.empty())
-    {
-        error = std::string("Missing ") + kHelper;
-        return false;
-    }
-    const int fd = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in loader{};
-    loader.sin_len = sizeof(loader);
-    loader.sin_family = AF_INET;
-    loader.sin_port = htons(kElfLoaderPort);
-    loader.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    if (fd < 0 || connect(fd, reinterpret_cast<sockaddr *>(&loader), sizeof(loader)) != 0)
-    {
-        if (fd >= 0)
-            close(fd);
-        error = "Pairing needs the ELF loader running (port 9021)";
-        return false;
-    }
-    size_t sent = 0;
-    while (sent < elf.size())
-    {
-        const ssize_t now = send(fd, elf.data() + sent, elf.size() - sent, 0);
-        if (now <= 0)
-            break;
-        sent += static_cast<size_t>(now);
-    }
-    close(fd); // end of file: elfldr starts the helper
-    if (sent != elf.size())
-    {
-        error = "Could not hand the pairing helper to the ELF loader";
-        return false;
-    }
-    return true;
-}
 
 constexpr int kControlPort = 7865; // the helper's lock port
 // A real login is about 1 KB; the helper refuses anything far larger.
@@ -78,37 +40,13 @@ constexpr std::size_t kMaxBody = 32 * 1024;
 
 int connect_control()
 {
-    const int fd = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in helper{};
-    helper.sin_len = sizeof(helper);
-    helper.sin_family = AF_INET;
-    helper.sin_port = htons(kControlPort);
-    helper.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    if (fd >= 0 && connect(fd, reinterpret_cast<sockaddr *>(&helper), sizeof(helper)) == 0)
-        return fd;
-    if (fd >= 0)
-        close(fd);
-    return -1;
+    return connect_loopback(kControlPort);
 }
 
 // Connects to the helper elfldr just started and waits for its "READY".
 int open_control()
 {
-    for (int attempt = 0; attempt < 30; ++attempt) // about 6 s
-    {
-        const int fd = connect_control();
-        if (fd >= 0)
-        {
-            timeval timeout{1, 0};
-            setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-            char ready[6];
-            if (recv(fd, ready, sizeof(ready), MSG_WAITALL) == 6 && std::memcmp(ready, "READY\n", 6) == 0)
-                return fd;
-            close(fd); // a helper on its way out
-        }
-        hui::sys::sleep_us(200000);
-    }
-    return -1;
+    return open_ready_link(kControlPort, 6);
 }
 
 } // namespace
@@ -126,7 +64,7 @@ std::unique_ptr<Pairing> Pairing::start(const std::string &device_name, std::str
         error = std::string("Pairing could not start (") + e.what() + ")";
         return nullptr;
     }
-    if (!send_helper(error))
+    if (!send_to_elf_loader(kHelper, "Pairing", error))
         return nullptr;
     pairing->control_ = open_control();
     const std::string hello = "INFO " + std::to_string(pairing->info_json_.size()) + "\n" + pairing->info_json_;

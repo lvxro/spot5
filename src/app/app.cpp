@@ -497,7 +497,10 @@ void App::run()
         const InputFrame input =
             tracker.update(std::span<const PadSample>(samples, count), static_cast<std::uint64_t>(now));
 
-        screens::Model model = model_from(controller.status());
+        const Status status = controller.status();
+        if (status.handed_off)
+            quit(display); // the background player has the music now
+        screens::Model model = model_from(status);
         model.device_name = settings.device_name;
         model.about = about;
         if (model.has_track)

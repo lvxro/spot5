@@ -38,12 +38,12 @@ APP_IMPORT_STUBS := $(OPENGL_SDK)/lib/libSceAgc.so $(OPENGL_SDK)/lib/libSceAgcDr
 export PS5_CLANG USE_CCACHE PS5_HOST FTP_PORT PS5_FTP_USER PS5_FTP_PASSWORD DEPLOY_DRY_RUN
 export APP_DEFINITIONS APP_INCLUDE_PATHS APP_STATIC_ARCHIVES APP_IMPORT_STUBS
 
-.PHONY: app deps opengl deploy clean helper
+.PHONY: app deps opengl deploy clean helper background
 # The PS5 SDK first, once: the other steps compile with it (and would race to fetch it).
 SDK_READY := .deps/native/ps5-payload-sdk/bin/prospero-clang
 $(SDK_READY):
 	@bash tools/setup-native-dependencies.sh
-app: build/deps/libbell.a opengl helper
+app: build/deps/libbell.a opengl helper background
 	@bash tools/build.sh
 # The mDNS helper payload (sent to elfldr while pairing): payload SDK, plain C.
 MDNSSVC := $(BELL)/external/mdnssvc
@@ -53,6 +53,12 @@ build/mdns-helper.elf: helper/mdns_helper.c $(MDNSSVC)/mdns.c $(MDNSSVC)/mdnsd.c
 	@mkdir -p build
 	PS5_PAYLOAD_SDK=$(PAYLOAD_SDK) $(PAYLOAD_SDK)/bin/prospero-clang -O2 -Wall -I$(MDNSSVC) \
 		-o $@ $^ -lpthread
+# The background player payload (sent to elfldr when the music moves to the
+# background): payload SDK, its own copy of cspot (tools/build-background.sh).
+background: build/spot5-background.elf
+build/spot5-background.elf: background/background.cpp assets/x509_bundle.bin sce_sys/icon0.png \
+		build/deps/libbell.a | $(SDK_READY)
+	@bash tools/build-background.sh
 deps: | $(SDK_READY)
 	@bash tools/build-deps.sh
 build/deps/libbell.a: | $(SDK_READY)

@@ -64,6 +64,7 @@ class Session
     // Control Room: quality applies from the next track, volume at once.
     void set_quality(int quality);
     void set_volume(int level, bool follow_phone);
+    int phone_volume() const { return player_->phone_volume(); }
     const std::string &device_name() const { return device_name_; }
     std::string username() const;
 

@@ -111,10 +111,25 @@ Spot5 needs no configuration file. To override the Spotify client ID it uses, pl
 - **Account** — who is signed in, and *Forget this login*.
 - **Display** — resolution (1080p, 1440p, 4K) and reduce motion.
 - **About** — version details, *Clear cache* and *Reset all settings*.
+- **Quit** — *Quit Spot5*, or *Keep playing in the background*.
+
+### Background play (experimental)
+
+The console suspends Spot5 when you leave it, so on its own the music stops at the home screen and in games. **Settings › Quit › Keep playing in the background** hands the music to a small background player instead, then closes Spot5:
+
+1. Spot5 starts the background player through the ELF loader (port 9021) with your login and what is playing.
+2. The player picks up the same song at the same point and appears in Spotify under the same device name.
+3. The **Spot5 Background** tile opens (the player installs it the first time). Its page plays the music through the console's system music player, which keeps going at the home screen and during games.
+
+While it plays in the background, control it from Spotify on your phone, or with ✕ / L1 / R1 while the tile is in front. Opening Spot5 again takes the music back where it was. After a reboot, the background player needs Spot5 (and the ELF loader) to start it again.
+
+The tile's page has to be served over https: by default it is this repository's GitHub Pages copy of [`docs/background/index.html`](docs/background/index.html) (`https://abhi245y.github.io/spot5/background/`). To use another copy (for example your fork's Pages), put its https address in `/data/spot5/background_url.txt` on the console; the tile is updated the next time the music moves to the background. The player's log is `/data/spot5/background.log`.
+
+This route was found and measured by [ps5-spotify](https://github.com/Maksio2019/ps5-spotify) (see its `howitworks.md`).
 
 ## Known limitations
 
-- Music stops when you start a game: the console suspends media apps while a game runs.
+- Without background play, music stops when you start a game: the console suspends media apps while a game runs. In background play, a pause or skip is heard about 2 seconds later (the system player's buffer), and the PS5's Control Center shows no music card.
 - Spotify DJ can't be played from the console yet.
 - Names in scripts other than Latin, Greek, Cyrillic and Malayalam (for example Hindi, Tamil, Japanese or Arabic) show `?` in place of those letters for now.
 
@@ -166,7 +181,7 @@ Spot5 builds on Linux (or WSL) and fetches its PS5 toolchain itself.
 ```sh
 git clone <this repository> spot5
 cd spot5
-make                                   # SDKs, dependencies, app and pairing helper
+make                                   # SDKs, dependencies, app, pairing helper and background player
 make deploy PS5_HOST=192.168.1.2       # copy to /data/homebrew/PPSA99061 over FTP
 ```
 
@@ -183,6 +198,7 @@ The first `make` downloads the pinned [PS5 payload SDK](https://github.com/ps5-p
 | `src/screens/` | Every screen: launch, Home, Library, playlist, artist, Now Playing, Settings |
 | `src/ui/`, `src/gfx/`, `src/audio/` | The UI kit, renderer and audio output |
 | `helper/` | The pairing helper, started through the ELF loader during first-time pairing |
+| `background/` | The background player, started through the ELF loader for background play (`docs/background/` is its tile's page) |
 | `third_party/cspot/` | The cspot and bell sources Spot5 is built on (see `VERSION`) |
 | `assets/`, `sce_sys/` | Fonts, logo, certificates, icon and the app's `param.json` |
 | `tools/` | Build, deploy, preview and icon scripts |
@@ -201,6 +217,7 @@ Spot5 stands on the work of many open-source projects. Thank you to their author
   [tiny-AES-c](https://github.com/kokke/tiny-AES-c) (public domain) and
   [tinysvcmdns](https://github.com/geekman/tinysvcmdns) by Darell Tan (BSD), used by the pairing helper.
 - [**librespot**](https://github.com/librespot-org/librespot) — the public client ID Spot5 uses by default.
+- [**ps5-spotify**](https://github.com/Maksio2019/ps5-spotify) by Maksio2019 — the background play route, its live stream and tile page, which Spot5's background player adapts (GPL-3.0).
 - [**ps5-homebrew-ui**](https://github.com/blackbearreloaded/ps5-homebrew-ui) and the
   [**PS5 Native App Boilerplate**](https://github.com/blackbearreloaded/ps5-native-app-boilerplate) by BlackBearReloaded — the UI kit, renderer and native app foundation (GPL-3.0).
 - [**ps5-opengl**](https://github.com/blackbearreloaded/ps5-opengl) with [Mesa](https://mesa3d.org/) — OpenGL 4.6 on the PS5.

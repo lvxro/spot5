@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <exception>
 #include <random>
+#include <utility>
 
 #include "platform/ps5/system.hpp"
 #include "service/home.hpp"
@@ -234,6 +235,12 @@ void Controller::handle_commands()
                 session_->browser().refresh(true);
             }
             break;
+        case Command::background:
+            if (state == State::Ready)
+                move_to_background();
+            else
+                set_notice("Connect to Spotify first, then try again");
+            break;
         case Command::quit:
             break; // the app quits itself
         }
@@ -381,6 +388,93 @@ void Controller::start_session(std::shared_ptr<cspot::LoginBlob> login)
     home_asked_ms_ = 0; // a new session checks Home's age at once
     rest_.clear();
     set_state(State::Ready);
+
+    // Music left in the background player (or by a handoff that failed) goes
+    // on here, where it was. The player is always asked: a handoff that timed
+    // out may have started it after all.
+    std::optional<service::Playing> playing = service::take_back_from_background();
+    if (!playing || playing->tracks.empty())
+        playing = std::exchange(resume_after_login_, std::nullopt);
+    resume_after_login_.reset();
+    if (playing && !playing->tracks.empty())
+        resume(*playing);
+}
+
+void Controller::move_to_background()
+{
+    service::Handoff handoff;
+    handoff.credentials = read_file(paths::kCredentials);
+    Config config;
+    std::string error;
+    if (handoff.credentials.empty() || !load_config(config, error))
+    {
+        set_notice(error.empty() ? "Background play needs the saved login" : error);
+        return;
+    }
+    handoff.client_id = config.client_id;
+    handoff.device_name = settings_.device_name;
+    handoff.quality = settings_.quality;
+    handoff.level = settings_.volume;
+    handoff.follow_phone = settings_.phone_volume;
+
+    service::Playing &playing = handoff.playing;
+    const NowPlaying now = session_->now_playing();
+    int index = -1;
+    playing.tracks = session_->queue(index);
+    playing.index = std::max(index, 0);
+    playing.context_uri = session_->context_uri();
+    if (!rest_.empty() && playing.context_uri == rest_context_)
+        playing.tracks.insert(playing.tracks.end(), rest_.begin(), rest_.end());
+    // A queue entry the app could not name would shift the rest: drop the list.
+    if (std::find(playing.tracks.begin(), playing.tracks.end(), std::string()) != playing.tracks.end())
+        playing.tracks.clear();
+    playing.position_ms = now.position_ms;
+    playing.paused = now.paused;
+    playing.phone_volume = session_->phone_volume();
+
+    // One Connect device per login name: this one leaves before the player
+    // signs in under the same name.
+    set_busy("Moving the music to the background", Until::track_change);
+    session_.reset();
+    rest_.clear();
+    if (service::hand_to_background(handoff, error))
+    {
+        // No session any more: park in Error until the app has quit.
+        set_state(State::Error, "The music plays in the background");
+        std::scoped_lock guard(lock_);
+        status_.busy.clear();
+        status_.handed_off = true;
+        return;
+    }
+    set_notice(error);
+    resume_after_login_ = playing; // carry on here
+    set_state(State::Connecting);
+}
+
+void Controller::resume(const service::Playing &playing)
+{
+    service::Resolved resolved;
+    resolved.context_uri = playing.context_uri;
+    resolved.tracks = playing.tracks;
+    resolved.shuffle = playing.shuffle;
+    rest_.clear();
+    if (!session_->play(resolved, rest_, static_cast<std::size_t>(playing.index)))
+        return;
+    rest_context_ = resolved.context_uri;
+    resuming_ = playing; // seek and pause once the track is in (step_resume)
+    hui::sys::log("[APP] resuming %s at track %d, %u ms", playing.context_uri.c_str(), playing.index,
+                  playing.position_ms);
+}
+
+void Controller::step_resume()
+{
+    if (!resuming_ || session_->now_playing().track_id.empty())
+        return;
+    if (resuming_->position_ms > 0)
+        session_->seek(resuming_->position_ms);
+    if (resuming_->paused)
+        session_->set_paused(true);
+    resuming_.reset();
 }
 
 void Controller::step_ready()
@@ -401,6 +495,7 @@ void Controller::step_ready()
         }
     }
     publish_now_playing();
+    step_resume();
     step_browser();
     if (!session_->connected())
     {

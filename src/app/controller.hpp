@@ -31,6 +31,7 @@
 
 #include "audio/player.hpp"
 #include "screens/model.hpp"
+#include "service/background.hpp"
 #include "service/pairing.hpp"
 #include "service/session.hpp"
 
@@ -72,6 +73,7 @@ struct Status
     std::string notice; // see screens::Model::notice
     std::string busy;   // see screens::Model::busy
     std::uint32_t notice_id = 0;
+    bool handed_off = false; // the background player plays now: the app quits
 };
 
 class Controller
@@ -110,6 +112,11 @@ class Controller
     void start_session(std::shared_ptr<cspot::LoginBlob> login);
     void step_ready();
     void step_reconnecting();
+    // Settings > Quit > Keep playing in the background.
+    void move_to_background();
+    // Plays what the background player handed back (or a failed handoff left).
+    void resume(const service::Playing &playing);
+    void step_resume();
     void set_state(State next, const std::string &message = {});
     void set_step(screens::Step step);
     void publish_now_playing();
@@ -144,6 +151,10 @@ class Controller
     // window at a time as the queue runs low (dropped if the phone takes over).
     std::vector<std::string> rest_;
     std::string rest_context_;
+    // Music to pick up after the next login (a handoff that failed), and the
+    // position and pause to apply once a resumed track has arrived.
+    std::optional<service::Playing> resume_after_login_;
+    std::optional<service::Playing> resuming_;
     // Pages and queue (controller thread): track details by URI, and the
     // URIs already asked for (so a row on screen is asked once).
     std::map<std::string, screens::TrackRow> details_;
